@@ -30,30 +30,23 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # AWS Access Key
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # AWS Secret Access Key
-          aws-region: ap-northeast-2  # AWS 리전
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # GitHub Secrets에 저장한 AWS Access Key ID
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # GitHub Secrets에 저장한 AWS Secret Access Key
+          aws-region: ap-northeast-2  
 
       - name: Login to Amazon ECR
         id: login-ecr
         run: |
-          aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}  # ECR 로그인
+          aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com  # ECR 로그인
 
       - name: Get image tag (version)
         id: image
         run: |
-          VERSION=$(echo ${{ github.sha }} | cut -c1-8)
-          echo "VERSION=$VERSION"
-          echo "::set-output name=image_tag::$VERSION"
+          VERSION=$(echo ${{ github.sha }} | cut -c1-8)  # SHA의 첫 8자리
+          echo "IMAGE_TAG=$VERSION" >> $GITHUB_ENV  # IMAGE_TAG 환경 변수 설정
 
-      - name: Build, tag, and push Docker image to Amazon ECR
-        id: image-info
-        env:
-          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}  # ECR 레지스트리
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}  # ECR 저장소 이름
-          IMAGE_TAG: ${{ steps.image.outputs.image_tag }}
+      - name: Build Docker image
         run: |
-          echo "::set-output name=ecr_repository::$ECR_REPOSITORY"
-          echo "::set-output name=image_tag::$IMAGE_TAG"
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker build -t pet-connect-main:$IMAGE_TAG .  # IMAGE_TAG를 사용하여 이미지 태그 설정
+          docker tag pet-connect-main:$IMAGE_TAG 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:$IMAGE_TAG  # ECR에 푸시할 태그
+          docker push 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:$IMAGE_TAG  # ECR에 Docker 이미지 푸시
