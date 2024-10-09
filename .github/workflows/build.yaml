@@ -32,7 +32,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # GitHub Secrets에 저장한 AWS Access Key ID
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # GitHub Secrets에 저장한 AWS Secret Access Key
-          aws-region: ap-northeast-2  
+          aws-region: ap-northeast-2
 
       - name: Login to Amazon ECR
         id: login-ecr
