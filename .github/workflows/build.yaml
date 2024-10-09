@@ -39,14 +39,21 @@ jobs:
         run: |
           aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com
 
+      - name: Get image tag (commit SHA)
+        id: image
+        run: |
+          VERSION=$(echo ${{ github.sha }} | cut -c1-8)
+          echo "VERSION=${VERSION}"
+          echo "::set-output name=version::${VERSION}"
+
       - name: Build Docker image
         run: |
-          docker build -t pet-connect-main .  # 이미지 태그 설정
-          docker tag pet-connect-main:latest 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:latest  # ECR에 푸시할 태그
+          docker build -t pet-connect-main:${{ steps.image.outputs.version }} .
+          docker tag pet-connect-main:${{ steps.image.outputs.version }} 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:${{ steps.image.outputs.version }}
 
       - name: Push Docker image
         run: |
-          docker push 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:latest  # ECR에 Docker 이미지 푸시
+          docker push 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:${{ steps.image.outputs.version }}
 
       - name: Setup Kustomize
         uses: imranismail/setup-kustomize@v1
@@ -59,22 +66,19 @@ jobs:
           token: ${{ secrets.ACTION_TOKEN }}
           path: k8s-manifest-repo
 
-      - name: Update Kubernetes resources
+      - name: Update Kubernetes resources with new image tag
         run: |
           cd k8s-manifest-repo/overlays/dev/
-          kustomize edit set image ${{ steps.login-ecr.outputs.registry }}/pet-connect-main=${{ steps.login-ecr.outputs.registry }}/pet-connect-main:latest
+          kustomize edit set image 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main=975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:${{ steps.image.outputs.version }}
           cat kustomization.yaml
 
-      # 변경된 Commit 단계 추가
-      - name: Commit files
+      - name: Commit files if changes
         run: |
           cd k8s-manifest-repo
-          if [[ `git status --porcelain` ]]; then  # 변경 사항이 있는지 확인
+          if [[ `git status --porcelain` ]]; then
             git config --global user.email "github-actions@github.com"
             git config --global user.name "github-actions"
-            git commit -am "Update image tag"
-            git push -u origin main  # 변경 사항이 있을 때만 푸시
+            git commit -am "Update image tag to ${{ steps.image.outputs.version }}"
+            git push -u origin main
           else
-            echo "No changes to commit"  # 변경 사항이 없을 경우 메시지 출력
-          fi
-
+            echo "No changes to commit"
