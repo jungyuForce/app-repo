@@ -50,3 +50,32 @@ jobs:
           docker build -t pet-connect-main:$IMAGE_TAG .  # IMAGE_TAG를 사용하여 이미지 태그 설정
           docker tag pet-connect-main:$IMAGE_TAG 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:$IMAGE_TAG  # ECR에 푸시할 태그
           docker push 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:$IMAGE_TAG  # ECR에 Docker 이미지 푸시
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v1
+
+      - name: Checkout kustomize repository
+        uses: actions/checkout@v2
+        with:
+          repository: jungyuForce/k8s-manifest-repo
+          ref: main
+          token: ${{ secrets.ACTION_TOKEN }}
+          path: k8s-manifest-repo
+
+      - name: Update Kubernetes resources
+        run: |
+          echo ${{ steps.login-ecr.outputs.registry }}
+          echo ${{ steps.image-info.outputs.ecr_repository }}
+          echo ${{ steps.image-info.outputs.image_tag }}
+          cd k8s-manifest-repo/overlays/dev/
+          kustomize edit set image ${{ steps.login-ecr.outputs.registry}}/${{ steps.image-info.outputs.ecr_repository }}=${{ steps.login-ecr.outputs.registry}}/${{ steps.image-info.outputs.ecr_repository }}:${{ steps.image-info.outputs.image_tag }}
+          cat kustomization.yaml
+
+      - name: Commit files
+        run: |
+          cd k8s-manifest-repo
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "github-actions"
+          git commit -am "Update image tag"
+          git push -u origin main
+
