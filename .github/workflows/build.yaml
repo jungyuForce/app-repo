@@ -30,18 +30,23 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # GitHub Secrets에 저장한 AWS Access Key ID
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # GitHub Secrets에 저장한 AWS Secret Access Key
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
       - name: Login to Amazon ECR
+        id: login-ecr
         run: |
-          aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com  # ECR 로그인
+          aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com
 
       - name: Build Docker image
         run: |
-          docker build -t pet-connect-main:latest .  # 이미지를 'latest' 태그로 빌드
-          docker push 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:latest  # 'latest' 태그로 ECR에 푸시
+          docker build -t pet-connect-main .  # 이미지 태그 설정
+          docker tag pet-connect-main:latest 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:latest  # ECR에 푸시할 태그
+
+      - name: Push Docker image
+        run: |
+          docker push 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:latest  # ECR에 Docker 이미지 푸시
 
       - name: Setup Kustomize
         uses: imranismail/setup-kustomize@v1
@@ -57,7 +62,6 @@ jobs:
       - name: Update Kubernetes resources
         run: |
           cd k8s-manifest-repo/overlays/dev/
-          # Kubernetes 리소스를 업데이트할 때 태그를 생략하고 'latest'를 사용
           kustomize edit set image 975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main=975050133565.dkr.ecr.ap-northeast-2.amazonaws.com/pet-connect-main:latest
           cat kustomization.yaml
 
@@ -66,5 +70,5 @@ jobs:
           cd k8s-manifest-repo
           git config --global user.email "github-actions@github.com"
           git config --global user.name "github-actions"
-          git commit -am "Update image to latest"
+          git commit -am "Update image tag"
           git push -u origin main
